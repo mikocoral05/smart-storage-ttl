@@ -1,0 +1,24 @@
+{
+  "name": "smart-storage-ttl",
+  "version": "1.0.0",
+  "description": "A zero-dependency, ultra-lightweight JavaScript library that supercharges the browser's native localStorage with intelligent expiration times (TTL), automatic memory cleanup, and smart fallbacks.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "localstorage",
+    "storage",
+    "ttl",
+    "cache",
+    "zero-dependency"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}

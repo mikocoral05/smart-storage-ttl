@@ -1,7 +1,16 @@
 export class SmartStorage {
   constructor(options = {}) {
+    this.options = {
+      prefix: 'ssttl_',
+      encrypt: false,
+      crossTabSync: false,
+      ...options,
+    };
+
     // Feature 5: Namespace Isolation
-    this.prefix = options.prefix ? `${options.prefix}_` : "ssttl_";
+    this.prefix = this.options.prefix.endsWith('_')
+      ? this.options.prefix
+      : `${this.options.prefix}_`;
 
     // Feature 3: Bulletproof Fallback to Memory
     this.memoryFallback = new Map();
@@ -9,6 +18,11 @@ export class SmartStorage {
 
     // Feature 1: Active Garbage Collection
     this.autoClean();
+
+    this._listeners = new Map();
+    if (this.options.crossTabSync && this.isSupported) {
+      window.addEventListener('storage', this._handleStorageChange);
+    }
   }
 
   /**
@@ -17,8 +31,8 @@ export class SmartStorage {
    */
   _checkStorageSupport() {
     try {
-      const testKey = "__ssttl_test__";
-      window.localStorage.setItem(testKey, "1");
+      const testKey = '__ssttl_test__';
+      window.localStorage.setItem(testKey, '1');
       window.localStorage.removeItem(testKey);
       return true;
     } catch (error) {
@@ -31,8 +45,8 @@ export class SmartStorage {
    * Converts formats like '30m', '2h', '1d' to milliseconds.
    */
   _parseTime(ttl) {
-    if (typeof ttl === "number") return ttl;
-    if (typeof ttl !== "string") return null;
+    if (typeof ttl === 'number') return ttl;
+    if (typeof ttl !== 'string') return null;
 
     const match = ttl.match(/^(\d+)([smhd])$/);
     if (!match) return null;
@@ -41,13 +55,13 @@ export class SmartStorage {
     const unit = match[2];
 
     switch (unit) {
-      case "s":
+      case 's':
         return value * 1000;
-      case "m":
+      case 'm':
         return value * 60 * 1000;
-      case "h":
+      case 'h':
         return value * 60 * 60 * 1000;
-      case "d":
+      case 'd':
         return value * 24 * 60 * 60 * 1000;
       default:
         return null;
@@ -59,16 +73,38 @@ export class SmartStorage {
     const ttlMs = this._parseTime(ttl);
     const expiry = ttlMs ? Date.now() + ttlMs : null;
 
-    const record = { value, expiry };
+    let record = { value, expiry };
+
+    if (this.options.encrypt) {
+      try {
+        record.value = btoa(JSON.stringify(record.value));
+        record.isEncrypted = true;
+      } catch (error) {
+        console.error(
+          `smart-storage-ttl: Failed to encrypt value for key "${key}". Encryption only works on JSON-serializable data.`,
+          error,
+        );
+        return;
+      }
+    }
 
     if (this.isSupported) {
       try {
-        window.localStorage.setItem(prefixedKey, JSON.stringify(record));
+        const serialized = JSON.stringify(record);
+        window.localStorage.setItem(prefixedKey, serialized);
         return;
       } catch (error) {
+        // Distinguish between serialization errors and storage quota errors
+        if (error.name === 'TypeError') {
+          console.error(
+            `smart-storage-ttl: Failed to serialize value for key "${key}".`,
+            error,
+          );
+          return; // Do not fall back to memory for developer errors
+        }
         // Fallback: localStorage might be full (QuotaExceededError)
         console.warn(
-          "localStorage write failed, falling back to memory.",
+          'localStorage write failed, falling back to memory.',
           error,
         );
       }
@@ -113,7 +149,35 @@ export class SmartStorage {
       return fallback;
     }
 
-    return record.value;
+    const finalValue = this._hydrateValue(record, key, fallback);
+
+    // If JSON.stringify stripped 'undefined', or it was explicitly set, return fallback
+    return finalValue !== undefined ? finalValue : fallback;
+  }
+
+  _hydrateValue(record, key, fallback = null) {
+    if (!record) return fallback;
+
+    let finalValue = record.value;
+    if (record.isEncrypted) {
+      if (!this.options.encrypt) {
+        console.warn(
+          `smart-storage-ttl: Key "${key}" is encrypted, but the current storage instance is not configured for encryption. Returning fallback.`,
+        );
+        return fallback;
+      }
+      try {
+        finalValue = JSON.parse(atob(String(finalValue)));
+      } catch (error) {
+        console.error(
+          `smart-storage-ttl: Failed to decrypt or parse data for key "${key}". The data may be corrupted.`,
+          error,
+        );
+        this.remove(key); // Clean up corrupted data
+        return fallback;
+      }
+    }
+    return finalValue;
   }
 
   remove(key) {
@@ -171,5 +235,62 @@ export class SmartStorage {
 
     // Batch remove to avoid mutating the storage object while iterating
     keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+  }
+
+  _handleStorageChange = (event) => {
+    if (!event.key || !event.key.startsWith(this.prefix)) {
+      return;
+    }
+
+    const key = event.key.substring(this.prefix.length);
+
+    // Update memory fallback
+    if (event.newValue) {
+      try {
+        this.memoryFallback.set(event.key, JSON.parse(event.newValue));
+      } catch {
+        // ignore parse errors
+      }
+    } else {
+      this.memoryFallback.delete(event.key);
+    }
+
+    // Trigger listeners
+    const changeListeners = this._listeners.get('change');
+    if (changeListeners) {
+      let newValue, oldValue;
+      try {
+        const newRecord = event.newValue ? JSON.parse(event.newValue) : null;
+        const oldRecord = event.oldValue ? JSON.parse(event.oldValue) : null;
+
+        newValue = this._hydrateValue(newRecord, key);
+        oldValue = this._hydrateValue(oldRecord, key);
+      } catch {
+        newValue = null;
+        oldValue = null;
+      }
+
+      changeListeners.forEach((callback) => callback(key, newValue, oldValue));
+    }
+  };
+
+  on(eventName, callback) {
+    if (!this._listeners.has(eventName)) {
+      this._listeners.set(eventName, new Set());
+    }
+    this._listeners.get(eventName).add(callback);
+  }
+
+  off(eventName, callback) {
+    if (this._listeners.has(eventName)) {
+      this._listeners.get(eventName).delete(callback);
+    }
+  }
+
+  dispose() {
+    if (this.options.crossTabSync && this.isSupported) {
+      window.removeEventListener('storage', this._handleStorageChange);
+    }
+    this._listeners.clear();
   }
 }

@@ -4,6 +4,16 @@ export interface SmartStorageOptions {
    * @default 'ssttl_'
    */
   prefix?: string;
+  /**
+   * If true, data will be obfuscated using Base64 encoding.
+   * @default false
+   */
+  encrypt?: boolean;
+  /**
+   * If true, changes in other tabs will be synced and trigger 'change' events.
+   * @default false
+   */
+  crossTabSync?: boolean;
 }
 
 export class SmartStorage {
@@ -45,4 +55,30 @@ export class SmartStorage {
    * This is called automatically on initialization, but can be triggered manually.
    */
   autoClean(): void;
+
+  /**
+   * Subscribes to events. Currently, only 'change' is supported.
+   * Requires `crossTabSync: true` to be set in the constructor.
+   * @param eventName The name of the event to listen to.
+   * @param callback The function to call when the event fires.
+   */
+  on(
+    eventName: 'change',
+    callback: (key: string, newValue: any, oldValue: any) => void,
+  ): void;
+
+  /**
+   * Unsubscribes from an event.
+   * @param eventName The name of the event.
+   * @param callback The callback function to remove.
+   */
+  off(
+    eventName: 'change',
+    callback: (key: string, newValue: any, oldValue: any) => void,
+  ): void;
+
+  /**
+   * Removes all event listeners and cleans up resources.
+   */
+  dispose(): void;
 }

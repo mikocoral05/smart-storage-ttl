@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# testing
+coverage/
+
+# npm packages
+*.tgz
+
+# system files
+.DS_Store

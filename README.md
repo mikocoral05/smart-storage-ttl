@@ -18,7 +18,7 @@ npm install smart-storage-ttl
 
 ## ✨ Killer Features
 
-### 1. 🧹 Active Garbage Collection (Auto-Cleanup)
+### 1. Active Garbage Collection (Auto-Cleanup)
 
 Other libraries only delete expired items if you try to `get()` them. If a user never returns to a specific page, that dead data hogs memory forever.
 **Our Solution:** When initialized, `smart-storage-ttl` silently scans local storage and wipes out all expired data immediately, keeping the user's browser perfectly clean.
@@ -38,7 +38,17 @@ In strict privacy modes (like Safari Private/Incognito) or when the 5MB storage 
 Calculating milliseconds in your head is annoying (`86400000` for one day? No thanks).
 **Our Solution:** Pass simple string formats like `'1h'`, `'30m'`, or `'2d'`. We do the math for you.
 
-### 5. 📦 Namespace Isolation
+### 5. 📡 Cross-Tab Sync
+
+When data changes in one browser tab, other tabs remain stale.
+**Our Solution:** Enable the `crossTabSync` option and subscribe to `change` events. Your application can react instantly to updates made in any tab, keeping your UI perfectly synchronized.
+
+### 6. 🔒 Optional Encryption
+
+Data in `localStorage` is plain text, readable by anyone with access to browser DevTools.
+**Our Solution:** Enable the `encrypt` option to automatically obfuscate your data with Base64 encoding before it's saved, making it unreadable at a glance.
+
+### 7. 📦 Namespace Isolation
 
 Using `localStorage.clear()` wipes out everything—even data saved by other plugins or analytics scripts.
 **Our Solution:** Initialize with a `prefix`. If you clear the cache using our library, it _only_ wipes out data belonging to your specific app namespace, leaving everything else untouched.
@@ -50,10 +60,17 @@ Using `localStorage.clear()` wipes out everything—even data saved by other plu
 ### Initialization
 
 ```javascript
-import { SmartStorage } from "smart-storage-ttl";
+import { SmartStorage } from 'smart-storage-ttl';
 
 // Initialize with an optional prefix for namespace isolation
-const storage = new SmartStorage({ prefix: "myapp" });
+const storage = new SmartStorage({ prefix: 'myapp' });
+
+// Initialize with all features enabled
+const advancedStorage = new SmartStorage({
+  prefix: 'secure-app',
+  encrypt: true,
+  crossTabSync: true,
+});
 ```
 
 _(Note: The moment you instantiate `SmartStorage`, the Active Garbage Collector automatically cleans up any expired keys matching your prefix!)_
@@ -64,19 +81,19 @@ Set a key, a value, and an optional Time-To-Live (TTL).
 
 ```javascript
 // Save forever (standard localStorage behavior)
-storage.set("theme", "dark-mode");
+storage.set('theme', 'dark-mode');
 
 // Save for 30 minutes
-storage.set("session_token", "xyz123", "30m");
+storage.set('session_token', 'xyz123', '30m');
 
 // Save for 2 hours
-storage.set("promo_banner", "hidden", "2h");
+storage.set('promo_banner', 'hidden', '2h');
 
 // Save for 1 day
-storage.set("daily_quote", "Hello World", "1d");
+storage.set('daily_quote', 'Hello World', '1d');
 
 // You can still pass exact milliseconds if you prefer!
-storage.set("custom", "data", 5000); // 5 seconds
+storage.set('custom', 'data', 5000); // 5 seconds
 ```
 
 ### Retrieving Data (Smart Fallbacks)
@@ -85,20 +102,20 @@ Get a key and provide an optional fallback value.
 
 ```javascript
 // Basic retrieval
-const token = storage.get("session_token");
+const token = storage.get('session_token');
 
 // Using Smart Fallbacks (Returns 'light-mode' if 'theme' doesn't exist or expired)
-const theme = storage.get("theme", "light-mode");
+const theme = storage.get('theme', 'light-mode');
 
 // Perfect for toggles or modals
-const shouldShowPromo = storage.get("promo_banner", "visible");
+const shouldShowPromo = storage.get('promo_banner', 'visible');
 ```
 
 ### Removing & Clearing
 
 ```javascript
 // Remove a specific key
-storage.remove("theme");
+storage.remove('theme');
 
 // Clear ALL keys (But ONLY keys that start with your 'myapp_' prefix!)
 storage.clear();
@@ -130,6 +147,13 @@ storage.clear();
 ### `.clear()`
 
 - Wipes all items managed by this library instance (matching the configured `prefix`).
+
+## 💖 Support the Project
+
+If you found this library helpful and want to support its continued development, consider buying me a coffee!
+
+- Buy Me a Coffee
+- Ko-fi
 
 ## License
 

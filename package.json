@@ -28,11 +28,14 @@
     "vue.d.ts"
   ],
   "scripts": {
+    "commit": "git-cz",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "validate": "npm run format && npm run lint && npm run test:coverage",
+    "prepare": "husky"
   },
   "keywords": [
     "localstorage",
@@ -56,15 +59,23 @@
     }
   },
   "devDependencies": {
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
     "@testing-library/react": "^14.2.2",
     "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.0.11",
     "jsdom": "^24.0.0",
     "prettier": "^3.2.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "vue": "^3.4.0",
     "vitest": "^1.6.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   }
 }

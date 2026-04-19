@@ -1,21 +1,24 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { effectScope, nextTick } from 'vue';
+import { webcrypto } from 'node:crypto';
 import { SmartStorage } from './index.js';
-import { useSmartStorage } from './vue.js';
+import { useSmartStorage, useSecureStorage } from './vue.js';
 
 describe('useSmartStorage Vue Composable', () => {
   let storage;
 
   beforeEach(() => {
     window.localStorage.clear();
+    vi.stubGlobal('crypto', webcrypto);
     storage = new SmartStorage({ prefix: 'test', crossTabSync: true });
   });
 
   afterEach(() => {
     storage.dispose();
+    vi.unstubAllGlobals();
   });
 
   it('should initialize with fallback if storage is empty', () => {
@@ -27,11 +30,17 @@ describe('useSmartStorage Vue Composable', () => {
     scope.stop();
   });
 
-  it('should initialize with stored value if present in storage', () => {
+  it('should initialize with stored value after hydration', async () => {
     storage.set('theme', 'dark');
     const scope = effectScope();
-    scope.run(() => {
+    await scope.run(async () => {
       const [theme] = useSmartStorage(storage, 'theme', 'light');
+
+      // Initial state should be the fallback
+      expect(theme.value).toBe('light');
+
+      // Wait for onMounted to complete
+      await nextTick();
       expect(theme.value).toBe('dark');
     });
     scope.stop();
@@ -75,6 +84,50 @@ describe('useSmartStorage Vue Composable', () => {
 
       await nextTick();
       expect(theme.value).toBe('blue');
+    });
+    scope.stop();
+  });
+});
+
+describe('useSecureStorage Vue Composable', () => {
+  let storage;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.stubGlobal('crypto', webcrypto);
+    storage = new SmartStorage({ prefix: 'secure_test', crossTabSync: true });
+  });
+
+  afterEach(() => {
+    storage.dispose();
+    vi.unstubAllGlobals();
+  });
+
+  it('should securely store and retrieve data asymmetrically', async () => {
+    const scope = effectScope();
+    await scope.run(async () => {
+      const [state, , , isLoading] = useSecureStorage(
+        storage,
+        'api_key',
+        'my-password',
+        'default-key',
+      );
+
+      expect(isLoading.value).toBe(true);
+      expect(state.value).toBe('default-key');
+
+      // Wait for decryption promise
+      await new Promise((r) => setTimeout(r, 50));
+      expect(isLoading.value).toBe(false);
+
+      // Mutate state to trigger secure encryption
+      state.value = 'super-secret-key';
+      await nextTick(); // Trigger watcher
+      await new Promise((r) => setTimeout(r, 50)); // Wait for setSecure promise
+
+      const raw = window.localStorage.getItem('secure_test_api_key');
+      expect(raw).not.toBeNull();
+      expect(raw).not.toContain('super-secret-key');
     });
     scope.stop();
   });

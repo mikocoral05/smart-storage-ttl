@@ -1,10 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { webcrypto } from 'node:crypto';
 import { SmartStorage } from './index.js';
-import { useSmartStorage } from './react.js';
+import { useSmartStorage, useSecureStorage } from './react.js';
 
 describe('useSmartStorage Hook', () => {
   let storage;
@@ -12,11 +13,13 @@ describe('useSmartStorage Hook', () => {
   beforeEach(() => {
     // jsdom provides a working localStorage, so we just clear it between tests
     window.localStorage.clear();
+    vi.stubGlobal('crypto', webcrypto);
     storage = new SmartStorage({ prefix: 'test', crossTabSync: true });
   });
 
   afterEach(() => {
     storage.dispose();
+    vi.unstubAllGlobals();
   });
 
   it('should initialize with fallback if storage is empty', () => {
@@ -26,12 +29,17 @@ describe('useSmartStorage Hook', () => {
     expect(result.current[0]).toBe('light');
   });
 
-  it('should initialize with stored value if present in storage', () => {
+  it('should initialize with stored value after hydration', async () => {
     storage.set('theme', 'dark');
     const { result } = renderHook(() =>
       useSmartStorage(storage, 'theme', 'light'),
     );
-    expect(result.current[0]).toBe('dark');
+
+    // Initial render should be the fallback to match the server
+    expect(result.current[0]).toBe('light');
+
+    // Wait for the useEffect to run and update the state from localStorage
+    await waitFor(() => expect(result.current[0]).toBe('dark'));
   });
 
   it('should update state and storage when setValue is called', () => {
@@ -87,5 +95,53 @@ describe('useSmartStorage Hook', () => {
     });
 
     expect(result.current[0]).toBe('blue');
+  });
+});
+
+describe('useSecureStorage Hook', () => {
+  let storage;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.stubGlobal('crypto', webcrypto);
+    storage = new SmartStorage({ prefix: 'secure_test', crossTabSync: true });
+  });
+
+  afterEach(() => {
+    storage.dispose();
+    vi.unstubAllGlobals();
+  });
+
+  it('should securely store and retrieve data asymmetrically', async () => {
+    const { result } = renderHook(() =>
+      useSecureStorage(storage, 'api_key', 'my-password', 'default-key'),
+    );
+
+    // Initially loading and falling back
+    expect(result.current[3]).toBe(true);
+    expect(result.current[0]).toBe('default-key');
+
+    // Wait for async decryption
+    await waitFor(() => expect(result.current[3]).toBe(false));
+
+    // Set secure value
+    await act(async () => {
+      await result.current[1]('super-secret-key');
+    });
+
+    // Verify state
+    expect(result.current[0]).toBe('super-secret-key');
+
+    // Verify local storage is encrypted and not plain text
+    const raw = window.localStorage.getItem('secure_test_api_key');
+    expect(raw).not.toBeNull();
+    expect(raw).not.toContain('super-secret-key');
+
+    // Remove value
+    act(() => {
+      result.current[2]();
+    });
+    expect(result.current[0]).toBe('default-key');
+    expect(window.localStorage.getItem('secure_test_api_key')).toBeNull();
   });
 });

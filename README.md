@@ -1,5 +1,9 @@
 # 🚀 smart-storage-ttl
 
+[![npm version](https://img.shields.io/npm/v/smart-storage-ttl-core.svg?style=flat-square)](https://www.npmjs.com/package/smart-storage-ttl-core)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/mikael-tenshio/smart-storage-ttl-core/ci.yml?branch=main&style=flat-square)](https://github.com/mikael-tenshio/smart-storage-ttl-core/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+
 A zero-dependency, ultra-lightweight JavaScript library that supercharges the browser's native `localStorage`.
 
 `smart-storage-ttl` introduces intelligent expiration times (TTL), automatic memory cleanup, and smart fallbacks, ensuring your web apps run faster and never leave stale data sitting on a user's device.
@@ -13,7 +17,7 @@ Native `localStorage` is great, but it has no concept of expiration. Existing wr
 ## 📦 Installation
 
 ```bash
-npm install smart-storage-ttl
+npm install smart-storage-ttl-core
 ```
 
 ## ✨ Killer Features
@@ -48,12 +52,36 @@ When data changes in one browser tab, other tabs remain stale.
 Data in `localStorage` is plain text, readable by anyone with access to browser DevTools.
 **Our Solution:** Enable the `encrypt` option to automatically obfuscate your data with Base64 encoding before it's saved, making it unreadable at a glance.
 
-### 7. 📦 Namespace Isolation
+### 7. 🗜️ Zero-Dependency Compression
+
+`localStorage` is strictly capped at ~5MB. Storing large arrays of JSON data can fill this up fast.
+**Our Solution:** Enable the `compress` option to automatically shrink your JSON data using a built-in LZW compression algorithm, significantly reducing the storage footprint for large repetitive data—all without adding any external dependencies.
+
+### 8. 📦 Namespace Isolation
 
 Using `localStorage.clear()` wipes out everything—even data saved by other plugins or analytics scripts.
 **Our Solution:** Initialize with a `prefix`. If you clear the cache using our library, it _only_ wipes out data belonging to your specific app namespace, leaving everything else untouched.
 
+### 9. 🧬 Auto-Serialize Complex Data
+
+Native `JSON.stringify` destroys `Map` and `Set` data structures, turning them into empty `{}` objects.
+**Our Solution:** Enable the `autoSerialize` option and our library will flawlessly stringify and revive your Maps and Sets behind the scenes.
+
+### 10. 🪟 Cross-Origin IFrame Sync
+
+Syncing state across IFrames on completely different domains is normally impossible due to browser security blocking `localStorage`.
+**Our Solution:** Securely bridge state across micro-frontends or cross-domain IFrames using our built-in `storage.syncWithWindow()` method.
+
+### 11. 🌍 SSR Ready (Next.js & Nuxt)
+
+Accessing `window.localStorage` during Server-Side Rendering (SSR) throws fatal `window is not defined` errors.
+**Our Solution:** The library automatically detects server environments, safely bypasses browser APIs, and seamlessly uses its in-memory fallback. You can use it directly in Next.js or Nuxt without writing tedious `typeof window !== 'undefined'` checks!
+
 ---
+
+## 🎮 Live Demo
+
+Try out the React Hook, TTL expiration, and Smart Fallbacks right in your browser: **[⚡ Open Interactive Demo on StackBlitz](YOUR_STACKBLITZ_LINK_HERE)**
 
 ## 🚀 Usage
 
@@ -68,8 +96,9 @@ const storage = new SmartStorage({ prefix: 'myapp' });
 // Initialize with all features enabled
 const advancedStorage = new SmartStorage({
   prefix: 'secure-app',
-  encrypt: true,
+  compress: true, // NOTE: encrypt and compress are mutually exclusive!
   crossTabSync: true,
+  autoSerialize: true,
 });
 ```
 
@@ -157,4 +186,4 @@ If you found this library helpful and want to support its continued development,
 
 ## License
 
-ISC
+MIT

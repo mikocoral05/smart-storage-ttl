@@ -1,4 +1,4 @@
-# 🚀 smart-storage-ttl
+# smart-storage-ttl
 
 [![npm version](https://img.shields.io/npm/v/smart-storage-ttl-core.svg?style=flat-square)](https://www.npmjs.com/package/smart-storage-ttl-core)
 [![CI Status](https://img.shields.io/github/actions/workflow/status/mikael-tenshio/smart-storage-ttl-core/ci.yml?branch=main&style=flat-square)](https://github.com/mikael-tenshio/smart-storage-ttl-core/actions)
@@ -14,7 +14,7 @@ Native `localStorage` is great, but it has no concept of expiration. Existing wr
 
 **`smart-storage-ttl` fixes all of this.**
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install smart-storage-ttl-core

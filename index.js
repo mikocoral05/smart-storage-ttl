@@ -445,28 +445,7 @@ export class SmartStorage {
 
     let finalValue = record.value;
 
-    if (record.isCompressed) {
-      if (!this.options.compress) {
-        this._log(
-          'warn',
-          `smart-storage-ttl: Key "${key}" is compressed, but the current storage instance is not configured for compression. Returning fallback.`,
-        );
-        return fallback;
-      }
-      try {
-        finalValue = JSON.parse(
-          decodeURIComponent(this._decompress(finalValue)),
-        );
-      } catch (error) {
-        this._log(
-          'error',
-          `smart-storage-ttl: Failed to decompress or parse data for key "${key}". The data may be corrupted.`,
-          error,
-        );
-        this.remove(key); // Clean up corrupted data
-        return fallback;
-      }
-    } else if (record.isEncrypted) {
+    if (record.isEncrypted) {
       if (!this.options.encrypt) {
         this._log(
           'warn',
@@ -477,7 +456,9 @@ export class SmartStorage {
       try {
         finalValue = JSON.parse(
           atob(String(finalValue)),
-          this.options.autoSerialize ? this._reviver : undefined,
+          this.options.autoSerialize && !record.isCompressed
+            ? this._reviver
+            : undefined,
         );
       } catch (error) {
         this._log(
@@ -489,7 +470,7 @@ export class SmartStorage {
         return fallback;
       }
     }
-    // Decompression happens second if compressed (on decrypted or unencrypted data)
+
     if (record.isCompressed) {
       if (!this.options.compress) {
         this._log(

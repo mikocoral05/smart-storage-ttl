@@ -1,4 +1,11 @@
-import { ref, watch, onMounted, onScopeDispose, getCurrentScope } from 'vue';
+import {
+  ref,
+  watch,
+  onMounted,
+  onScopeDispose,
+  getCurrentScope,
+  nextTick,
+} from 'vue';
 
 /**
  * A Vue 3 Composable for seamless integration with smart-storage-ttl.
@@ -42,8 +49,9 @@ export function useSmartStorage(
     if (changedKey === key) {
       isUpdatingFromStorage = true;
       state.value = newValue !== null ? newValue : initialValue;
-      // Reset the flag immediately after the synchronous Vue update
-      isUpdatingFromStorage = false;
+      nextTick(() => {
+        isUpdatingFromStorage = false;
+      });
     }
   };
 
@@ -56,8 +64,12 @@ export function useSmartStorage(
   }
 
   const removeValue = () => {
+    isUpdatingFromStorage = true;
     storageInstance.remove(key);
     state.value = initialValue;
+    nextTick(() => {
+      isUpdatingFromStorage = false;
+    });
   };
 
   const getKeys = () => storageInstance.keys();
@@ -91,12 +103,16 @@ export function useSecureStorage(
     storageInstance.getSecure(key, password, initialValue).then((val) => {
       isUpdatingFromStorage = true;
       state.value = val;
-      isUpdatingFromStorage = false;
+      nextTick(() => {
+        isUpdatingFromStorage = false;
+      });
       isLoading.value = false;
     });
   };
 
-  fetchSecure();
+  onMounted(() => {
+    fetchSecure();
+  });
 
   watch(
     state,
@@ -117,8 +133,12 @@ export function useSecureStorage(
     onScopeDispose(() => storageInstance.off('change', handleStorageChange));
 
   const removeValue = () => {
+    isUpdatingFromStorage = true;
     storageInstance.remove(key);
     state.value = initialValue;
+    nextTick(() => {
+      isUpdatingFromStorage = false;
+    });
   };
   const getKeys = () => storageInstance.keys();
 

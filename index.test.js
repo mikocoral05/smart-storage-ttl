@@ -79,6 +79,10 @@ describe('SmartStorage', () => {
       JSON.stringify({ value: 'new', expiry: Date.now() + 1000 }),
     );
 
+    window.localStorage.setItem('other_app', 'keep');
+    window.localStorage.setItem('ssttl__lru_order__', '[]');
+    window.localStorage.setItem('ssttl_corrupted', '{bad');
+
     // Initializing the library should silently run autoClean()
     new SmartStorage();
 
@@ -86,6 +90,9 @@ describe('SmartStorage', () => {
     expect(JSON.parse(window.localStorage.getItem('ssttl_valid')).value).toBe(
       'new',
     );
+    expect(window.localStorage.getItem('other_app')).toBe('keep');
+    expect(window.localStorage.getItem('ssttl__lru_order__')).toBe('[]');
+    expect(window.localStorage.getItem('ssttl_corrupted')).toBeNull(); // Corrupted data gets cleaned up!
   });
 
   it('Feature 2: Smart Fallbacks (Default Values)', () => {
@@ -116,6 +123,21 @@ describe('SmartStorage', () => {
 
     // Prove the app can still retrieve it seamlessly
     expect(storage.get('session')).toBe('12345');
+
+    // Add keys() coverage for memoryFallback branches
+    storage.memoryFallback.set('other_app', { value: '1', expiry: null });
+    storage.memoryFallback.set('ssttl__lru_order__', {
+      value: [],
+      expiry: null,
+    });
+    storage.memoryFallback.set('ssttl_expired', {
+      value: '2',
+      expiry: Date.now() - 1000,
+    });
+    const keys = storage.keys();
+    expect(keys).toContain('session');
+    expect(keys).not.toContain('other_app');
+    expect(keys).not.toContain('expired');
   });
 
   it('Feature 4: Human-Readable Time Formats', () => {
@@ -156,6 +178,7 @@ describe('SmartStorage', () => {
     // Set a library key and a rogue outside key
     myAppStorage.set('color', 'blue');
     window.localStorage.setItem('other_app_color', 'red');
+    window.localStorage.setItem('myapp__lru_order__', '[]');
 
     // Execute isolated clear()
     myAppStorage.clear();
@@ -165,6 +188,7 @@ describe('SmartStorage', () => {
 
     // Rogue key should remain untouched
     expect(window.localStorage.getItem('other_app_color')).toBe('red');
+    expect(window.localStorage.getItem('myapp__lru_order__')).toBeNull();
   });
 
   it('Feature: User ID Isolation', () => {
@@ -311,6 +335,37 @@ describe('SmartStorage', () => {
     // 2. Check if the listener was called with the correct, decrypted values
     expect(changeCallback).toHaveBeenCalledTimes(1);
     expect(changeCallback).toHaveBeenCalledWith('mykey', 'new', 'old');
+
+    // 3. Simulate a deletion event
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: 'ssttl_mykey',
+        oldValue: newValue,
+        newValue: null,
+      }),
+    );
+    expect(changeCallback).toHaveBeenCalledWith('mykey', null, 'new');
+
+    // 4. Simulate a corrupted JSON event
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: 'ssttl_mykey',
+        oldValue: null,
+        newValue: '{bad_json',
+      }),
+    );
+    // Safely ignore parse error, but trigger change with nulls
+    expect(changeCallback).toHaveBeenCalledWith('mykey', null, null);
+
+    // 5. Simulate an event with a corrupted oldValue
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: 'ssttl_mykey',
+        oldValue: '{bad_json',
+        newValue: null,
+      }),
+    );
+    expect(changeCallback).toHaveBeenCalledWith('mykey', null, null);
   });
 
   it('Feature: Custom Logger', () => {
@@ -340,7 +395,10 @@ describe('SmartStorage', () => {
   });
 
   it('Feature: Auto-Serialize Map and Set', () => {
-    const storage = new SmartStorage({ autoSerialize: true });
+    const storage = new SmartStorage({
+      autoSerialize: true,
+      crossTabSync: true,
+    });
     const map = new Map([
       ['a', 1],
       ['b', 2],
@@ -361,6 +419,22 @@ describe('SmartStorage', () => {
     const plainStorage = new SmartStorage();
     plainStorage.set('plain_map', map);
     expect(plainStorage.get('plain_map')).toEqual({}); // JSON.stringify(Map) defaults to {}
+
+    // Cover autoSerialize parsing in cross-tab sync
+    const changeCallback = vi.fn();
+    storage.on('change', changeCallback);
+    const oldValue = JSON.stringify({ value: map }, storage._replacer);
+    const newValue = JSON.stringify({ value: set }, storage._replacer);
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: 'ssttl_my_map',
+        oldValue,
+        newValue,
+      }),
+    );
+    expect(changeCallback).toHaveBeenCalled();
+    expect(changeCallback.mock.calls[0][1]).toBeInstanceOf(Set);
+    expect(changeCallback.mock.calls[0][2]).toBeInstanceOf(Map);
   });
 
   it('Feature: Cross-Origin IFrame Sync (postMessage)', () => {
@@ -392,6 +466,40 @@ describe('SmartStorage', () => {
 
     expect(storage.get('inward_key')).toBe('456');
     expect(changeCallback).toHaveBeenCalledWith('inward_key', '456', null);
+
+    // 3. Receives inward postMessage for remove
+    const removeEvent = new Event('message');
+    removeEvent.data = {
+      __ssttl: 'frame_',
+      action: 'remove',
+      key: 'inward_key',
+    };
+    removeEvent.origin = 'https://trusted.com';
+    window.dispatchEvent(removeEvent);
+    expect(storage.get('inward_key')).toBeNull();
+
+    // 4. Receives inward postMessage for clear
+    storage.set('another_key', '111');
+    const clearEvent = new Event('message');
+    clearEvent.data = { __ssttl: 'frame_', action: 'clear' };
+    clearEvent.origin = 'https://trusted.com';
+    window.dispatchEvent(clearEvent);
+    expect(storage.get('another_key')).toBeNull();
+
+    // 5. Ignores untrusted origins
+    const strictStorage = new SmartStorage({ prefix: 'strict' });
+    strictStorage.syncWithWindow(targetWin, 'https://trusted.com');
+
+    const strictEvent = new Event('message');
+    strictEvent.data = {
+      __ssttl: 'strict_',
+      action: 'set',
+      key: 'hack',
+      value: 'bad',
+    };
+    strictEvent.origin = 'https://evil.com';
+    window.dispatchEvent(strictEvent);
+    expect(strictStorage.get('hack')).toBeNull();
   });
 
   it('Feature: Evict Event (TTL & LRU)', () => {
@@ -426,13 +534,19 @@ describe('SmartStorage', () => {
     // Fast forward to expire the second key
     vi.advanceTimersByTime(6 * 60 * 1000);
 
+    window.localStorage.setItem('other_app_key', '123');
+    window.localStorage.setItem('inspect__lru_order__', '[]');
+    window.localStorage.setItem('inspect_corrupt', '{bad_json');
+
     expect(storage.has('active_key')).toBe(true);
     expect(storage.has('expired_key')).toBe(false);
     expect(storage.has('missing_key')).toBe(false);
+    expect(storage.has('corrupt')).toBe(false); // Cover has() corrupted JSON catch block
 
     const activeKeys = storage.keys();
     expect(activeKeys).toContain('active_key');
     expect(activeKeys).not.toContain('expired_key');
+    expect(activeKeys).not.toContain('corrupt');
   });
 
   it('Feature: Read and Destroy (pop and popSecure)', async () => {
@@ -471,6 +585,9 @@ describe('SmartStorage', () => {
     storage.set('a', '123');
     const sizeAfterA = storage.getSize();
     expect(sizeAfterA).toBeGreaterThan(0);
+
+    window.localStorage.setItem('other_app', 'ignored');
+    window.localStorage.setItem('size_test__lru_order__', '[]');
 
     storage.set('b', '1234567890');
     expect(storage.getSize()).toBeGreaterThan(sizeAfterA);
@@ -524,8 +641,6 @@ describe('SmartStorage', () => {
 
 describe('SmartStorage: LRU Cache (maxSize)', () => {
   beforeEach(() => {
-    window.localStorage.clear();
-    window.sessionStorage?.clear();
     // Mocking for LRU should be consistent with other tests
     const createStorageMock = () => {
       let store = {};

@@ -20,70 +20,70 @@ Native `localStorage` is great, but it has no concept of expiration. Existing wr
 npm install smart-storage-ttl-core
 ```
 
-## ✨ Killer Features
+## Killer Features
 
 ### 1. Active Garbage Collection (Auto-Cleanup)
 
 Other libraries only delete expired items if you try to `get()` them. If a user never returns to a specific page, that dead data hogs memory forever.
 **Our Solution:** When initialized, `smart-storage-ttl` silently scans local storage and wipes out all expired data immediately, keeping the user's browser perfectly clean.
 
-### 2. 🛡️ Smart Fallbacks (Default Values)
+### 2. Smart Fallbacks (Default Values)
 
 When an item expires, older libraries return `null`, forcing you to write extra `if/else` logic to handle missing data.
 **Our Solution:** Pass a fallback value directly into the `get` method. If the data is missing or expired, you get your fallback instantly.
 
-### 3. 🧠 Bulletproof Fallback to Memory
+### 3. Bulletproof Fallback to Memory
 
 In strict privacy modes (like Safari Private/Incognito) or when the 5MB storage quota is exceeded, native `localStorage` throws fatal errors that crash your app.
 **Our Solution:** If `smart-storage-ttl` detects that `localStorage` is blocked or full, it automatically and silently saves the data to a temporary JavaScript `Map` in memory. Your app keeps working perfectly with zero code changes.
 
-### 4. ⏳ Human-Readable Time Formats
+### 4. Human-Readable Time Formats
 
 Calculating milliseconds in your head is annoying (`86400000` for one day? No thanks).
 **Our Solution:** Pass simple string formats like `'1h'`, `'30m'`, or `'2d'`. We do the math for you.
 
-### 5. 📡 Cross-Tab Sync
+### 5. Cross-Tab Sync
 
 When data changes in one browser tab, other tabs remain stale.
 **Our Solution:** Enable the `crossTabSync` option and subscribe to `change` events. Your application can react instantly to updates made in any tab, keeping your UI perfectly synchronized.
 
-### 6. 🔒 Optional Encryption
+### 6. Optional Encryption
 
 Data in `localStorage` is plain text, readable by anyone with access to browser DevTools.
 **Our Solution:** Enable the `encrypt` option to automatically obfuscate your data with Base64 encoding before it's saved, making it unreadable at a glance.
 
-### 7. 🗜️ Zero-Dependency Compression
+### 7. Zero-Dependency Compression
 
 `localStorage` is strictly capped at ~5MB. Storing large arrays of JSON data can fill this up fast.
 **Our Solution:** Enable the `compress` option to automatically shrink your JSON data using a built-in LZW compression algorithm, significantly reducing the storage footprint for large repetitive data—all without adding any external dependencies.
 
-### 8. 📦 Namespace Isolation
+### 8. Namespace Isolation
 
 Using `localStorage.clear()` wipes out everything—even data saved by other plugins or analytics scripts.
 **Our Solution:** Initialize with a `prefix`. If you clear the cache using our library, it _only_ wipes out data belonging to your specific app namespace, leaving everything else untouched.
 
-### 9. 🧬 Auto-Serialize Complex Data
+### 9. Auto-Serialize Complex Data
 
 Native `JSON.stringify` destroys `Map` and `Set` data structures, turning them into empty `{}` objects.
 **Our Solution:** Enable the `autoSerialize` option and our library will flawlessly stringify and revive your Maps and Sets behind the scenes.
 
-### 10. 🪟 Cross-Origin IFrame Sync
+### 10. Cross-Origin IFrame Sync
 
 Syncing state across IFrames on completely different domains is normally impossible due to browser security blocking `localStorage`.
 **Our Solution:** Securely bridge state across micro-frontends or cross-domain IFrames using our built-in `storage.syncWithWindow()` method.
 
-### 11. 🌍 SSR Ready (Next.js & Nuxt)
+### 11. SSR Ready (Next.js & Nuxt)
 
 Accessing `window.localStorage` during Server-Side Rendering (SSR) throws fatal `window is not defined` errors.
 **Our Solution:** The library automatically detects server environments, safely bypasses browser APIs, and seamlessly uses its in-memory fallback. You can use it directly in Next.js or Nuxt without writing tedious `typeof window !== 'undefined'` checks!
 
 ---
 
-## 🎮 Live Demo
+## Live Demo
 
-Try out the React Hook, TTL expiration, and Smart Fallbacks right in your browser: **[⚡ Open Interactive Demo on StackBlitz](YOUR_STACKBLITZ_LINK_HERE)**
+Try out the React Hook, TTL expiration, and Smart Fallbacks right in your browser: **Open Interactive Demo on StackBlitz**
 
-## 🚀 Usage
+## Usage
 
 ### Initialization
 
@@ -152,7 +152,7 @@ storage.clear();
 
 ---
 
-## ⚙️ API Reference
+## API Reference
 
 ### `new SmartStorage(options)`
 
@@ -177,7 +177,7 @@ storage.clear();
 
 - Wipes all items managed by this library instance (matching the configured `prefix`).
 
-## 💖 Support the Project
+## Support the Project
 
 If you found this library helpful and want to support its continued development, consider buying me a coffee!
 

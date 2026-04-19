@@ -187,3 +187,11 @@ If you found this library helpful and want to support its continued development,
 ## License
 
 MIT
+
+### How to trigger the release with this useful change:
+
+1. Save the changes to your `README.md` file.
+2. Stage the file in your terminal:
+   ```bash
+   git add README.md
+   ```

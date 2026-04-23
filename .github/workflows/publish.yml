@@ -8,6 +8,10 @@ jobs:
   release:
     name: Semantic Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Allows semantic-release to push tags and create releases
+      issues: write # Allows semantic-release to comment on issues
+      pull-requests: write # Allows semantic-release to comment on PRs
 
     steps:
       - name: Checkout repository

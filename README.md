@@ -181,8 +181,8 @@ storage.clear();
 
 If you found this library helpful and want to support its continued development, consider buying me a coffee!
 
-- Buy Me a Coffee
-- Ko-fi
+- [Buy Me a Coffee](https://buymeacoffee.com/mikaeltenshio)
+- [Ko-fi](https://ko-fi.com/mikaeltenshio)
 
 ## License
 
